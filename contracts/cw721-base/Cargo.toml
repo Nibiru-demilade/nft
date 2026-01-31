@@ -1,0 +1,28 @@
+[package]
+name = "nibiru-cw721"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "CW721 NFT contract with royalty support for Nibiru Chain"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+library = []
+
+[dependencies]
+cosmwasm-std.workspace = true
+cosmwasm-schema.workspace = true
+cw-storage-plus.workspace = true
+cw2.workspace = true
+cw721.workspace = true
+cw721-base = { workspace = true, features = ["library"] }
+schemars.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+cosmwasm-vm = "1.5"

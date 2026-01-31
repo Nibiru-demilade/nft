@@ -1,0 +1,305 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ COLLECTIONS ============
+
+model Collection {
+  id              String   @id @default(uuid())
+  contractAddress String   @unique
+  name            String
+  symbol          String
+  description     String?
+  image           String?
+  banner          String?
+  externalUrl     String?
+  creator         String
+  royaltyPercent  Decimal  @default(0)
+  royaltyAddress  String?
+  verified        Boolean  @default(false)
+  featured        Boolean  @default(false)
+  
+  // Stats (updated by indexer)
+  floorPrice      BigInt?
+  totalVolume     BigInt   @default(0)
+  totalSales      Int      @default(0)
+  totalListings   Int      @default(0)
+  ownerCount      Int      @default(0)
+  itemCount       Int      @default(0)
+  
+  // Social links
+  twitter         String?
+  discord         String?
+  website         String?
+  
+  // Categories
+  categories      String[]
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  nfts            Nft[]
+  
+  @@index([creator])
+  @@index([verified])
+  @@index([totalVolume])
+}
+
+// ============ NFTs ============
+
+model Nft {
+  id              String   @id @default(uuid())
+  tokenId         String
+  collectionId    String
+  collection      Collection @relation(fields: [collectionId], references: [id])
+  
+  // Owner info
+  owner           String
+  creator         String?
+  
+  // Metadata
+  metadataUri     String?
+  name            String?
+  description     String?
+  image           String?
+  animationUrl    String?
+  externalUrl     String?
+  
+  // Traits (stored as JSON)
+  traits          Json?
+  
+  // Rarity
+  rarityScore     Decimal?
+  rarityRank      Int?
+  
+  // Stats
+  viewCount       Int      @default(0)
+  favoriteCount   Int      @default(0)
+  
+  // Timestamps
+  mintedAt        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  listings        Listing[]
+  offers          Offer[]
+  activities      Activity[]
+  favorites       Favorite[]
+  
+  @@unique([collectionId, tokenId])
+  @@index([owner])
+  @@index([collectionId])
+}
+
+// ============ LISTINGS ============
+
+model Listing {
+  id              String   @id @default(uuid())
+  nftId           String
+  nft             Nft      @relation(fields: [nftId], references: [id])
+  
+  // Seller info
+  seller          String
+  
+  // Listing details
+  listingType     ListingType @default(FIXED_PRICE)
+  price           BigInt
+  denom           String   @default("unibi")
+  
+  // Auction fields
+  startPrice      BigInt?
+  endPrice        BigInt?
+  reservePrice    BigInt?
+  highestBid      BigInt?
+  highestBidder   String?
+  
+  // Timing
+  startsAt        DateTime @default(now())
+  expiresAt       DateTime
+  
+  // Status
+  status          ListingStatus @default(ACTIVE)
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([seller])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+enum ListingType {
+  FIXED_PRICE
+  AUCTION
+  DUTCH_AUCTION
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
+  EXPIRED
+}
+
+// ============ OFFERS ============
+
+model Offer {
+  id              String   @id @default(uuid())
+  nftId           String
+  nft             Nft      @relation(fields: [nftId], references: [id])
+  
+  // Bidder info
+  bidder          String
+  
+  // Offer details
+  amount          BigInt
+  denom           String   @default("unibi")
+  
+  // Timing
+  expiresAt       DateTime
+  
+  // Status
+  status          OfferStatus @default(ACTIVE)
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([nftId, bidder])
+  @@index([bidder])
+  @@index([status])
+}
+
+enum OfferStatus {
+  ACTIVE
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+// ============ ACTIVITIES ============
+
+model Activity {
+  id              String   @id @default(uuid())
+  nftId           String?
+  nft             Nft?     @relation(fields: [nftId], references: [id])
+  
+  // Activity type
+  type            ActivityType
+  
+  // Addresses
+  fromAddress     String?
+  toAddress       String?
+  
+  // Transaction details
+  price           BigInt?
+  denom           String?
+  txHash          String?
+  
+  // Additional data
+  metadata        Json?
+  
+  // Timestamps
+  timestamp       DateTime @default(now())
+  createdAt       DateTime @default(now())
+  
+  @@index([nftId])
+  @@index([fromAddress])
+  @@index([toAddress])
+  @@index([type])
+  @@index([timestamp])
+}
+
+enum ActivityType {
+  MINT
+  TRANSFER
+  LIST
+  UNLIST
+  SALE
+  OFFER
+  OFFER_ACCEPTED
+  OFFER_CANCELLED
+  AUCTION_BID
+  AUCTION_SETTLED
+}
+
+// ============ USERS ============
+
+model User {
+  id              String   @id @default(uuid())
+  address         String   @unique
+  
+  // Profile
+  username        String?  @unique
+  bio             String?
+  avatar          String?
+  banner          String?
+  
+  // Social links
+  twitter         String?
+  discord         String?
+  website         String?
+  email           String?
+  
+  // Verification
+  verified        Boolean  @default(false)
+  
+  // Notifications
+  emailNotifications Boolean @default(false)
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  favorites       Favorite[]
+  
+  @@index([username])
+}
+
+// ============ FAVORITES ============
+
+model Favorite {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  nftId           String
+  nft             Nft      @relation(fields: [nftId], references: [id])
+  
+  createdAt       DateTime @default(now())
+  
+  @@unique([userId, nftId])
+  @@index([userId])
+  @@index([nftId])
+}
+
+// ============ STATS ============
+
+model GlobalStats {
+  id              String   @id @default("global")
+  totalVolume     BigInt   @default(0)
+  totalSales      Int      @default(0)
+  totalCollections Int     @default(0)
+  totalNfts       Int      @default(0)
+  totalUsers      Int      @default(0)
+  updatedAt       DateTime @updatedAt
+}
+
+// ============ SYNC STATE ============
+
+model SyncState {
+  id              String   @id @default("main")
+  lastBlockHeight BigInt   @default(0)
+  lastBlockTime   DateTime?
+  updatedAt       DateTime @updatedAt
+}

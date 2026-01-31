@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Rust/CosmWasm
+contracts/target/
+contracts/artifacts/
+**/*.rs.bk
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.pem
+deployed-contracts.json
+
+# Database
+*.db
+*.sqlite
+
+# Docker volumes (local)
+postgres_data/
+redis_data/
+
+# Prisma
+prisma/migrations/*_migration_lock.toml
