@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Avoid loading broken SWC binary on this Windows setup; use Babel instead
+  swcMinify: false,
   images: {
     domains: [
       'ipfs.io',
