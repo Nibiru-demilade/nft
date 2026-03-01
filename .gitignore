@@ -45,6 +45,10 @@ coverage/
 *.pem
 deployed-contracts.json
 
+# Backend uploads (MVP local storage)
+backend/uploads/
+uploads/
+
 # Database
 *.db
 *.sqlite

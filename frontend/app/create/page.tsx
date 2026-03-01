@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Image from 'next/image'
-import { useChain } from '@cosmos-kit/react'
+import { useWalletAddress } from '@/lib/walletAddressContext'
 import { Button } from '@/components/ui/button'
 import { Upload, Plus, X, Loader2 } from 'lucide-react'
+import { uploadFile, apiCreateCollection, apiMint, getCollections } from '@/lib/api'
 
 interface Attribute {
   trait_type: string
@@ -12,18 +13,29 @@ interface Attribute {
 }
 
 export default function CreatePage() {
-  const { isWalletConnected, openView } = useChain('nibirutestnet')
-  
+  const { address, isConnected, openView } = useWalletAddress()
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [collection, setCollection] = useState('')
+  const [collectionAddress, setCollectionAddress] = useState('')
+  const [collections, setCollections] = useState<Array<{ contractAddress: string; name: string }>>([])
+  const [newCollectionName, setNewCollectionName] = useState('')
+  const [newCollectionSymbol, setNewCollectionSymbol] = useState('')
+  const [creatingCollection, setCreatingCollection] = useState(false)
   const [externalUrl, setExternalUrl] = useState('')
   const [royalty, setRoyalty] = useState('5')
   const [attributes, setAttributes] = useState<Attribute[]>([])
   const [supply, setSupply] = useState('1')
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    if (address) {
+      getCollections({ creator: address })
+        .then((r) => setCollections(r.collections ?? []))
+        .catch(() => setCollections([]))
+    }
+  }, [address])
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -64,44 +76,66 @@ export default function CreatePage() {
     setAttributes(updated)
   }
 
+  const handleCreateCollection = async () => {
+    if (!address || !newCollectionName.trim() || !newCollectionSymbol.trim()) return
+    setCreatingCollection(true)
+    try {
+      const { contractAddress } = await apiCreateCollection({
+        name: newCollectionName.trim(),
+        symbol: newCollectionSymbol.trim(),
+        creator: address,
+      })
+      setCollectionAddress(contractAddress)
+      setCollections((prev) => [...prev, { contractAddress, name: newCollectionName.trim() }])
+      setNewCollectionName('')
+      setNewCollectionSymbol('')
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to create collection')
+    } finally {
+      setCreatingCollection(false)
+    }
+  }
+
   const handleMint = async () => {
-    if (!isWalletConnected) {
+    if (!isConnected) {
       openView()
       return
     }
-
+    if (!address) return
     if (!file || !name) {
       alert('Please provide an image and name')
+      return
+    }
+    if (!collectionAddress.trim()) {
+      alert('Please select or create a collection')
       return
     }
 
     setIsLoading(true)
     try {
-      // 1. Upload image to IPFS (mock)
-      console.log('Uploading to IPFS...')
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      // 2. Create metadata JSON
-      const metadata = {
+      const { url } = await uploadFile(file)
+      const tokenId = `${name.replace(/\s/g, '-').slice(0, 20)}-${Date.now()}`
+      const tokenUri = url || preview || ''
+      await apiMint({
+        collectionAddress: collectionAddress.trim(),
+        tokenId,
+        owner: address,
+        tokenUri,
         name,
-        description,
-        image: 'ipfs://QmExample...',
-        external_url: externalUrl,
-        attributes: attributes.filter((a) => a.trait_type && a.value),
-      }
-
-      // 3. Upload metadata to IPFS (mock)
-      console.log('Uploading metadata...')
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // 4. Execute mint transaction (mock)
-      console.log('Minting NFT...')
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
+        description: description || undefined,
+        image: url || undefined,
+        traits: attributes.filter((a) => a.trait_type && a.value).length
+          ? Object.fromEntries(attributes.filter((a) => a.trait_type && a.value).map((a) => [a.trait_type, a.value]))
+          : undefined,
+      })
       alert('NFT minted successfully!')
+      setFile(null)
+      setPreview(null)
+      setName('')
+      setDescription('')
     } catch (error) {
       console.error('Error minting:', error)
-      alert('Error minting NFT')
+      alert(error instanceof Error ? error.message : 'Error minting NFT')
     } finally {
       setIsLoading(false)
     }
@@ -197,15 +231,42 @@ export default function CreatePage() {
           <div>
             <label className="block text-sm font-medium mb-2">Collection</label>
             <select
-              value={collection}
-              onChange={(e) => setCollection(e.target.value)}
+              value={collectionAddress}
+              onChange={(e) => setCollectionAddress(e.target.value)}
               className="w-full h-11 px-4 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="">Select a collection</option>
-              <option value="new">+ Create new collection</option>
-              <option value="cosmic">Cosmic Apes</option>
-              <option value="punks">Nibiru Punks</option>
+              {collections.map((c) => (
+                <option key={c.contractAddress} value={c.contractAddress}>
+                  {c.name}
+                </option>
+              ))}
             </select>
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={newCollectionName}
+                onChange={(e) => setNewCollectionName(e.target.value)}
+                placeholder="New collection name"
+                className="flex-1 h-10 px-3 rounded-lg bg-secondary border border-border text-sm"
+              />
+              <input
+                type="text"
+                value={newCollectionSymbol}
+                onChange={(e) => setNewCollectionSymbol(e.target.value)}
+                placeholder="SYMBOL"
+                className="w-24 h-10 px-3 rounded-lg bg-secondary border border-border text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCreateCollection}
+                disabled={creatingCollection || !newCollectionName.trim() || !newCollectionSymbol.trim()}
+              >
+                {creatingCollection ? 'Creating...' : 'Create collection'}
+              </Button>
+            </div>
           </div>
 
           {/* External URL */}
@@ -287,7 +348,7 @@ export default function CreatePage() {
           {/* Submit */}
           <Button
             onClick={handleMint}
-            disabled={isLoading || !file || !name}
+            disabled={isLoading || !file || !name || !collectionAddress.trim()}
             className="w-full"
             variant="gradient"
             size="lg"

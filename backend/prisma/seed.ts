@@ -102,10 +102,10 @@ async function main() {
           name: `${collection.name} #${tokenId}`,
           description: `A unique NFT from ${collection.name}`,
           image: `https://picsum.photos/seed/${collection.symbol}${tokenId}/400`,
-          traits: JSON.stringify([
+          traits: [
             { trait_type: 'Background', value: ['Blue', 'Red', 'Green', 'Purple'][i % 4] },
             { trait_type: 'Rarity', value: ['Common', 'Rare', 'Epic', 'Legendary'][i % 4] },
-          ]),
+          ] as object,
           viewCount: Math.floor(Math.random() * 1000),
           favoriteCount: Math.floor(Math.random() * 100),
           mintedAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),

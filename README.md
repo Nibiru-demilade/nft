@@ -49,6 +49,21 @@ nft/
 - **Docker** (for PostgreSQL and Redis)
 - **Nibiru CLI** (`nibid`) for contract deployment
 
+## Mock Mode (No Contract Deployment)
+
+You can run the full app **without deploying any smart contracts** using the mock contract layer:
+
+1. **Backend:** Set in `backend/.env`:
+   - `USE_MOCK_CONTRACTS=true`
+   - `DATABASE_URL` (PostgreSQL)
+   - Run `npx prisma migrate deploy` and `npx prisma db seed`
+
+2. **Frontend:** Set in `frontend/.env.local`:
+   - `NEXT_PUBLIC_USE_MOCK_CONTRACTS=true`
+   - `NEXT_PUBLIC_API_URL=http://localhost:3001/api`
+
+3. Start backend (`npm run dev` in `backend/`) and frontend (`npm run dev` in `frontend/`). Connect wallet will prompt for an address/username (no Keplr). Mint, list, and buy write to the database via `backend/src/services/contractMock.ts`. To switch to real contracts later, set `USE_MOCK_CONTRACTS=false` and deploy contracts.
+
 ## Quick Start
 
 ### 1. Clone and Install

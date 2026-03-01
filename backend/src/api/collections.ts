@@ -2,8 +2,28 @@ import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma'
 import { AppError } from '../middleware/errorHandler'
+import { contractService } from '../services/contracts'
 
 export const collectionsRouter = Router()
+
+const createCollectionSchema = z.object({
+  name: z.string().min(1),
+  symbol: z.string().min(1),
+  creator: z.string(),
+  description: z.string().optional(),
+  image: z.string().optional(),
+})
+
+// POST /api/collections/create - Create collection (uses contract service: mock or real)
+collectionsRouter.post('/create', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const body = createCollectionSchema.parse(req.body)
+    const result = await contractService.createCollection(body)
+    res.status(201).json(result)
+  } catch (error) {
+    next(error instanceof Error ? error : new AppError('Create collection failed', 400))
+  }
+})
 
 // Query schema
 const listCollectionsSchema = z.object({

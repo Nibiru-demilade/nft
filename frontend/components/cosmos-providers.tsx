@@ -1,9 +1,10 @@
 'use client'
 
-import { ChainProvider } from '@cosmos-kit/react'
+import { ChainProvider, useChain } from '@cosmos-kit/react'
 import { wallets as keplrWallets } from '@cosmos-kit/keplr'
 import { wallets as leapWallets } from '@cosmos-kit/leap'
 import { chains, assets } from 'chain-registry'
+import { WalletAddressProvider } from '@/lib/walletAddressContext'
 
 const nibiruTestnet = {
   chain_name: 'nibirutestnet',
@@ -52,6 +53,15 @@ const nibiruAssets = {
   ],
 }
 
+function RealWalletAddressBridge({ children }: { children: React.ReactNode }) {
+  const { address, isWalletConnected, openView } = useChain('nibirutestnet')
+  return (
+    <WalletAddressProvider value={{ address: address ?? null, isConnected: isWalletConnected, openView }}>
+      {children}
+    </WalletAddressProvider>
+  )
+}
+
 export function CosmosProviders({ children }: { children: React.ReactNode }) {
   return (
     <ChainProvider
@@ -75,7 +85,7 @@ export function CosmosProviders({ children }: { children: React.ReactNode }) {
         },
       }}
     >
-      {children}
+      <RealWalletAddressBridge>{children}</RealWalletAddressBridge>
     </ChainProvider>
   )
 }

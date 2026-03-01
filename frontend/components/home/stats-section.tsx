@@ -1,74 +1,79 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { TrendingUp, Users, Image, Coins } from 'lucide-react'
+import { fetchStats, type GlobalStats } from '@/lib/api'
 
-const stats = [
-  {
-    label: 'Total Volume',
-    value: '2.5M',
-    subvalue: 'NIBI',
-    icon: Coins,
-    change: '+15.2%',
-    positive: true,
-  },
-  {
-    label: 'NFTs Created',
-    value: '524K',
-    subvalue: 'Items',
-    icon: Image,
-    change: '+8.7%',
-    positive: true,
-  },
-  {
-    label: 'Total Users',
-    value: '52.4K',
-    subvalue: 'Wallets',
-    icon: Users,
-    change: '+12.3%',
-    positive: true,
-  },
-  {
-    label: 'Total Sales',
-    value: '156K',
-    subvalue: 'Transactions',
-    icon: TrendingUp,
-    change: '+5.1%',
-    positive: true,
-  },
+const statConfig = [
+  { label: 'Total Volume', key: 'totalVolume' as const, subvalue: 'NIBI', icon: Coins },
+  { label: 'NFTs Created', key: 'totalNfts' as const, subvalue: 'Items', icon: Image },
+  { label: 'Total Users', key: 'totalUsers' as const, subvalue: 'Wallets', icon: Users },
+  { label: 'Total Sales', key: 'totalSales' as const, subvalue: 'Transactions', icon: TrendingUp },
 ]
 
+function formatStat(value: string | number): string {
+  const n = typeof value === 'string' ? parseInt(value, 10) : value
+  if (isNaN(n)) return '0'
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K'
+  return String(n)
+}
+
 export function StatsSection() {
+  const [stats, setStats] = useState<GlobalStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchStats()
+      .then((r) => { setStats(r.stats); setError(null) })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <section>
+        <div className="text-center mb-12">
+          <h2 className="text-2xl md:text-3xl font-bold">Marketplace Statistics</h2>
+          <p className="text-muted-foreground mt-2">Loading...</p>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="p-6 rounded-xl bg-card border border-border animate-pulse h-32" />
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  if (error || !stats) {
+    return (
+      <section>
+        <div className="text-center text-muted-foreground">
+          <p>{error ?? 'No stats available'}</p>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section>
       <div className="text-center mb-12">
         <h2 className="text-2xl md:text-3xl font-bold">Marketplace Statistics</h2>
         <p className="text-muted-foreground mt-2">Real-time data from the Nibiru NFT ecosystem</p>
       </div>
-
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="p-6 rounded-xl bg-card border border-border hover:border-primary/50 transition-colors"
-          >
+        {statConfig.map(({ label, key, subvalue, icon: Icon }) => (
+          <div key={label} className="p-6 rounded-xl bg-card border border-border hover:border-primary/50 transition-colors">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 rounded-lg bg-primary/10">
-                <stat.icon className="h-5 w-5 text-primary" />
+                <Icon className="h-5 w-5 text-primary" />
               </div>
-              <span
-                className={`text-sm font-medium ${
-                  stat.positive ? 'text-green-500' : 'text-red-500'
-                }`}
-              >
-                {stat.change}
-              </span>
             </div>
-            <div>
-              <p className="text-3xl font-bold">{stat.value}</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {stat.subvalue} • {stat.label}
-              </p>
-            </div>
+            <p className="text-sm text-muted-foreground">{label}</p>
+            <p className="text-2xl font-bold mt-1">{formatStat(stats[key] ?? 0)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{subvalue}</p>
           </div>
         ))}
       </div>

@@ -146,8 +146,9 @@ async function handleTransfer(
   blockHeight: number
 ) {
   const tokenId = attributes['token_id']
-  const sender = attributes['sender']
-  const recipient = attributes['recipient']
+  // CW721 uses "from"/"to"; some contracts use "sender"/"recipient"
+  const sender = attributes['from'] || attributes['sender']
+  const recipient = attributes['to'] || attributes['recipient']
 
   const collection = await prisma.collection.findUnique({
     where: { contractAddress },

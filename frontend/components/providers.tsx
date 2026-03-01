@@ -3,8 +3,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import { useState } from 'react'
+import { MockWalletProvider } from '@/lib/mockWalletContext'
 
-// Load Cosmos Kit + chain-registry only on the client to avoid SSR 500 and SES intrinsics errors
+const useMockContracts = process.env.NEXT_PUBLIC_USE_MOCK_CONTRACTS === 'true'
+
 const CosmosProviders = dynamic(
   () => import('@/components/cosmos-providers').then((m) => m.CosmosProviders),
   { ssr: false, loading: () => null }
@@ -25,7 +27,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <CosmosProviders>{children}</CosmosProviders>
+      {useMockContracts ? (
+        <MockWalletProvider>{children}</MockWalletProvider>
+      ) : (
+        <CosmosProviders>{children}</CosmosProviders>
+      )}
     </QueryClientProvider>
   )
 }

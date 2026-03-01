@@ -1,26 +1,41 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
 
-// Generic fetch wrapper with error handling
-async function fetchAPI<T>(
-  endpoint: string,
-  options?: RequestInit
-): Promise<T> {
+export async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_URL}${endpoint}`
-  
   const response = await fetch(url, {
     headers: {
-      'Content-Type': 'application/json',
+      ...(options?.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
       ...options?.headers,
     },
     ...options,
   })
-
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-    throw new Error(error.message || `API Error: ${response.status}`)
+    throw new Error((error as { message?: string }).message || `API Error: ${response.status}`)
   }
-
   return response.json()
+}
+
+// Discovery (home page)
+export async function fetchTrending(params?: { period?: string; limit?: number }) {
+  const sp = new URLSearchParams()
+  if (params?.period) sp.set('period', params.period)
+  if (params?.limit) sp.set('limit', String(params.limit))
+  return fetchAPI<{ trending: Array<Collection & { floorPrice?: string; totalVolume?: string }> }>(
+    `/trending?${sp.toString()}`
+  )
+}
+
+export async function fetchRecent(params?: { limit?: number }) {
+  const sp = new URLSearchParams()
+  if (params?.limit) sp.set('limit', String(params.limit))
+  return fetchAPI<{ recent: Array<{ id: string; nft: NFT; price: string; denom: string; seller: string; createdAt: string }> }>(
+    `/recent?${sp.toString()}`
+  )
+}
+
+export async function fetchStats() {
+  return fetchAPI<{ stats: GlobalStats }>('/stats')
 }
 
 // ============ Collections API ============
@@ -35,10 +50,11 @@ export interface Collection {
   banner?: string
   creator: string
   verified: boolean
-  floorPrice?: string
-  totalVolume: string
-  itemCount: number
-  ownerCount: number
+  floorPrice?: string | number | bigint
+  totalVolume: string | number | bigint
+  itemCount?: number
+  ownerCount?: number
+  website?: string
 }
 
 export async function getCollections(params?: {
@@ -252,8 +268,21 @@ export async function getGlobalStats() {
 }
 
 export async function getTrendingCollections(period = '24h', limit = 10) {
-  return fetchAPI<{ trending: Collection[] }>(
-    `/stats/trending?period=${period}&limit=${limit}`
+  const r = await fetchTrending({ period, limit })
+  return { trending: r.trending }
+}
+
+export async function getListings(params?: {
+  collection?: string
+  seller?: string
+  status?: string
+  page?: number
+  limit?: number
+}) {
+  const sp = new URLSearchParams()
+  Object.entries(params || {}).forEach(([k, v]) => { if (v != null) sp.set(k, String(v)) })
+  return fetchAPI<{ listings: Array<Listing & { nft?: NFT }>; pagination: { page: number; limit: number; total: number; pages: number } }>(
+    `/listings?${sp.toString()}`
   )
 }
 
@@ -263,26 +292,67 @@ export async function getTopSales(limit = 10) {
 
 // ============ Upload API ============
 
-export async function uploadFile(file: File) {
+export async function uploadFile(file: File): Promise<{ url: string; uri: string; filename?: string }> {
   const formData = new FormData()
   formData.append('file', file)
-
-  const response = await fetch(`${API_URL}/upload/file`, {
-    method: 'POST',
-    body: formData,
-  })
-
-  if (!response.ok) {
-    throw new Error('Upload failed')
-  }
-
-  return response.json()
+  const data = await fetchAPI<{ url?: string; uri: string; gateway?: string; filename?: string }>(
+    '/upload/file',
+    { method: 'POST', body: formData }
+  )
+  return { url: data.url ?? data.uri ?? data.gateway ?? '', uri: data.uri, filename: data.filename }
 }
 
-export async function uploadMetadata(metadata: any) {
-  return fetchAPI<{ cid: string; uri: string }>('/upload/metadata', {
+export async function uploadMetadata(metadata: Record<string, unknown>): Promise<{ uri: string; url?: string }> {
+  const data = await fetchAPI<{ uri: string; url?: string; gateway?: string }>('/upload/metadata', {
     method: 'POST',
     body: JSON.stringify(metadata),
+  })
+  return { uri: data.uri, url: data.url ?? data.gateway }
+}
+
+// ============ Contract actions (mock or real) ============
+
+export async function apiMint(params: {
+  collectionAddress: string
+  tokenId: string
+  owner: string
+  tokenUri: string
+  name?: string
+  description?: string
+  image?: string
+  traits?: object
+}) {
+  return fetchAPI<{ txHash: string }>('/mint', { method: 'POST', body: JSON.stringify(params) })
+}
+
+export async function apiList(params: {
+  collectionAddress: string
+  tokenId: string
+  price: string
+  seller: string
+  durationSeconds?: number
+}) {
+  return fetchAPI<{ txHash: string; listingId: string }>('/list', { method: 'POST', body: JSON.stringify(params) })
+}
+
+export async function apiBuy(params: { listingId: string; buyer: string }) {
+  return fetchAPI<{ txHash: string }>('/buy', { method: 'POST', body: JSON.stringify(params) })
+}
+
+export async function apiCancelListing(params: { listingId: string; seller: string }) {
+  return fetchAPI<{ txHash: string }>('/cancel-listing', { method: 'POST', body: JSON.stringify(params) })
+}
+
+export async function apiCreateCollection(params: {
+  name: string
+  symbol: string
+  creator: string
+  description?: string
+  image?: string
+}) {
+  return fetchAPI<{ contractAddress: string; txHash: string }>('/collections/create', {
+    method: 'POST',
+    body: JSON.stringify(params),
   })
 }
 
