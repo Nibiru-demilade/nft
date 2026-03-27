@@ -1,41 +1,47 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CollectionCard } from '@/components/ui/collection-card'
 import { Button } from '@/components/ui/button'
 import { SearchBar } from '@/components/ui/search-bar'
-import { Grid, List, TrendingUp, Clock, Verified } from 'lucide-react'
-
-// Mock collections
-const mockCollections = Array.from({ length: 16 }, (_, i) => ({
-  address: `nibi1collection${i}`,
-  name: `Collection ${i + 1}`,
-  image: `https://picsum.photos/seed/coll${i}/200`,
-  banner: `https://picsum.photos/seed/collbanner${i}/400/200`,
-  floorPrice: String((Math.random() * 50 + 1).toFixed(2)),
-  totalVolume: String((Math.random() * 10000 + 100).toFixed(0)),
-  itemCount: Math.floor(Math.random() * 10000) + 100,
-  ownerCount: Math.floor(Math.random() * 5000) + 50,
-  isVerified: i < 8,
-  change24h: (Math.random() - 0.5) * 40,
-}))
+import { TrendingUp, Clock, Verified } from 'lucide-react'
+import { getCollections, type Collection } from '@/lib/api'
 
 const tabs = [
-  { id: 'trending', label: 'Trending', icon: TrendingUp },
-  { id: 'top', label: 'Top', icon: null },
-  { id: 'new', label: 'New', icon: Clock },
+  { id: 'trending', label: 'Trending', icon: TrendingUp, sortBy: 'volume' as const },
+  { id: 'top', label: 'Top', icon: null, sortBy: 'volume' as const },
+  { id: 'new', label: 'New', icon: Clock, sortBy: 'created' as const },
 ]
-
-const timeFilters = ['24h', '7d', '30d', 'All Time']
 
 export default function CollectionsPage() {
   const [activeTab, setActiveTab] = useState('trending')
-  const [timeFilter, setTimeFilter] = useState('24h')
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(false)
+  const [collections, setCollections] = useState<Collection[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
 
-  const filteredCollections = showVerifiedOnly
-    ? mockCollections.filter((c) => c.isVerified)
-    : mockCollections
+  useEffect(() => {
+    setLoading(true)
+    const tab = tabs.find((t) => t.id === activeTab) ?? tabs[0]
+    getCollections({
+      sortBy: tab.sortBy,
+      verified: showVerifiedOnly || undefined,
+      page,
+      limit: 20,
+    })
+      .then((r) => {
+        setCollections(r.collections ?? [])
+        setTotalPages(r.pagination?.pages ?? 1)
+        setError(null)
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Failed to load')
+        setCollections([])
+      })
+      .finally(() => setLoading(false))
+  }, [activeTab, showVerifiedOnly, page])
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -55,7 +61,7 @@ export default function CollectionsPage() {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => { setActiveTab(tab.id); setPage(1) }}
                 className={`flex items-center gap-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   activeTab === tab.id
                     ? 'bg-background text-foreground shadow-sm'
@@ -67,19 +73,6 @@ export default function CollectionsPage() {
               </button>
             ))}
           </div>
-
-          {/* Time Filter */}
-          <select
-            value={timeFilter}
-            onChange={(e) => setTimeFilter(e.target.value)}
-            className="h-10 px-3 rounded-lg bg-secondary border border-border text-sm"
-          >
-            {timeFilters.map((filter) => (
-              <option key={filter} value={filter}>
-                {filter}
-              </option>
-            ))}
-          </select>
         </div>
 
         <div className="flex items-center gap-4">
@@ -88,7 +81,7 @@ export default function CollectionsPage() {
             <input
               type="checkbox"
               checked={showVerifiedOnly}
-              onChange={(e) => setShowVerifiedOnly(e.target.checked)}
+              onChange={(e) => { setShowVerifiedOnly(e.target.checked); setPage(1) }}
               className="rounded border-border"
             />
             <Verified className="h-4 w-4 text-primary" />
@@ -102,78 +95,114 @@ export default function CollectionsPage() {
         </div>
       </div>
 
-      {/* Stats Table Header (for larger screens) */}
-      <div className="hidden lg:grid grid-cols-12 gap-4 px-4 py-3 text-sm font-medium text-muted-foreground border-b border-border mb-4">
-        <div className="col-span-1">#</div>
-        <div className="col-span-4">Collection</div>
-        <div className="col-span-2 text-right">Floor Price</div>
-        <div className="col-span-2 text-right">24h %</div>
-        <div className="col-span-2 text-right">Volume</div>
-        <div className="col-span-1 text-right">Items</div>
-      </div>
+      {/* Loading */}
+      {loading && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <div key={i} className="rounded-2xl bg-card border border-border animate-pulse aspect-[3/4]" />
+          ))}
+        </div>
+      )}
 
-      {/* Desktop Table View */}
-      <div className="hidden lg:block space-y-2">
-        {filteredCollections.map((collection, index) => (
-          <a
-            key={collection.address}
-            href={`/collection/${collection.address}`}
-            className="grid grid-cols-12 gap-4 px-4 py-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-colors items-center"
-          >
-            <div className="col-span-1 text-muted-foreground">{index + 1}</div>
-            <div className="col-span-4 flex items-center gap-3">
-              <img
-                src={collection.image}
-                alt={collection.name}
-                className="h-12 w-12 rounded-lg object-cover"
+      {/* Error */}
+      {!loading && error && <p className="text-muted-foreground py-8">{error}</p>}
+
+      {!loading && !error && (
+        <>
+          {/* Desktop Table View */}
+          <div className="hidden lg:block">
+            {/* Stats Table Header */}
+            <div className="grid grid-cols-12 gap-4 px-4 py-3 text-sm font-medium text-muted-foreground border-b border-border mb-4">
+              <div className="col-span-1">#</div>
+              <div className="col-span-4">Collection</div>
+              <div className="col-span-2 text-right">Floor Price</div>
+              <div className="col-span-2 text-right">Volume</div>
+              <div className="col-span-2 text-right">Items</div>
+              <div className="col-span-1 text-right">Owners</div>
+            </div>
+
+            <div className="space-y-2">
+              {collections.map((collection, index) => {
+                const floorPrice = collection.floorPrice != null ? String(collection.floorPrice) : '--'
+                const totalVolume = collection.totalVolume != null ? String(collection.totalVolume) : '--'
+                return (
+                  <a
+                    key={collection.contractAddress}
+                    href={`/collection/${collection.contractAddress}`}
+                    className="grid grid-cols-12 gap-4 px-4 py-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-colors items-center"
+                  >
+                    <div className="col-span-1 text-muted-foreground">{(page - 1) * 20 + index + 1}</div>
+                    <div className="col-span-4 flex items-center gap-3">
+                      <img
+                        src={collection.image || '/placeholder-collection.png'}
+                        alt={collection.name}
+                        className="h-12 w-12 rounded-lg object-cover"
+                      />
+                      <div>
+                        <div className="flex items-center gap-1">
+                          <span className="font-semibold">{collection.name}</span>
+                          {collection.verified && (
+                            <Verified className="h-4 w-4 text-primary fill-primary" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-span-2 text-right font-medium">
+                      {floorPrice} NIBI
+                    </div>
+                    <div className="col-span-2 text-right font-medium">
+                      {totalVolume} NIBI
+                    </div>
+                    <div className="col-span-2 text-right text-muted-foreground">
+                      {(collection.itemCount ?? 0).toLocaleString()}
+                    </div>
+                    <div className="col-span-1 text-right text-muted-foreground">
+                      {(collection.ownerCount ?? 0).toLocaleString()}
+                    </div>
+                  </a>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Mobile/Tablet Card Grid */}
+          <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {collections.map((collection) => (
+              <CollectionCard
+                key={collection.contractAddress}
+                address={collection.contractAddress}
+                name={collection.name}
+                image={collection.image}
+                banner={collection.banner}
+                floorPrice={collection.floorPrice != null ? String(collection.floorPrice) : undefined}
+                totalVolume={collection.totalVolume != null ? String(collection.totalVolume) : undefined}
+                itemCount={collection.itemCount}
+                ownerCount={collection.ownerCount}
+                isVerified={collection.verified}
               />
-              <div>
-                <div className="flex items-center gap-1">
-                  <span className="font-semibold">{collection.name}</span>
-                  {collection.isVerified && (
-                    <Verified className="h-4 w-4 text-primary fill-primary" />
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="col-span-2 text-right font-medium">
-              {collection.floorPrice} NIBI
-            </div>
-            <div
-              className={`col-span-2 text-right font-medium ${
-                collection.change24h > 0
-                  ? 'text-green-500'
-                  : collection.change24h < 0
-                  ? 'text-red-500'
-                  : ''
-              }`}
-            >
-              {collection.change24h > 0 ? '+' : ''}
-              {collection.change24h.toFixed(1)}%
-            </div>
-            <div className="col-span-2 text-right font-medium">
-              {collection.totalVolume} NIBI
-            </div>
-            <div className="col-span-1 text-right text-muted-foreground">
-              {collection.itemCount.toLocaleString()}
-            </div>
-          </a>
-        ))}
-      </div>
+            ))}
+          </div>
 
-      {/* Mobile/Tablet Card Grid */}
-      <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {filteredCollections.map((collection) => (
-          <CollectionCard key={collection.address} {...collection} />
-        ))}
-      </div>
+          {collections.length === 0 && (
+            <p className="text-muted-foreground text-center py-12">No collections found.</p>
+          )}
 
-      {/* Load More */}
-      <div className="mt-12 text-center">
-        <Button variant="outline" size="lg">
-          Load More Collections
-        </Button>
-      </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-12 flex justify-center gap-2">
+              <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                Previous
+              </Button>
+              <span className="flex items-center px-4 text-sm text-muted-foreground">
+                {page} / {totalPages}
+              </span>
+              <Button variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                Next
+              </Button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

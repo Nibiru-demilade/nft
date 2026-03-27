@@ -62,13 +62,13 @@ collectionsRouter.get('/', async (req: Request, res: Response, next: NextFunctio
     }
 
     if (query.category) {
-      where.categories = { has: query.category }
+      where.categories = { contains: query.category }
     }
 
     if (query.search) {
       where.OR = [
-        { name: { contains: query.search, mode: 'insensitive' } },
-        { description: { contains: query.search, mode: 'insensitive' } },
+        { name: { contains: query.search } },
+        { description: { contains: query.search } },
       ]
     }
 

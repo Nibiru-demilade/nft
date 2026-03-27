@@ -69,7 +69,7 @@ uploadRouter.post('/', upload.single('file'), async (req: Request, res: Response
         const err = await pinataRes.text()
         throw new AppError(`Pinata upload failed: ${err}`, 502)
       }
-      const data = await pinataRes.json()
+      const data = (await pinataRes.json()) as { IpfsHash: string }
       const cid = data.IpfsHash
       return res.json({
         success: true,
@@ -117,7 +117,7 @@ uploadRouter.post('/file', upload.single('file'), async (req: Request, res: Resp
         body: formData as any,
       })
       if (!pinataRes.ok) throw new AppError('Pinata upload failed', 502)
-      const data = await pinataRes.json()
+      const data = (await pinataRes.json()) as { IpfsHash: string }
       const cid = data.IpfsHash
       return res.json({
         success: true,
@@ -169,7 +169,7 @@ uploadRouter.post('/metadata', async (req: Request, res: Response, next: NextFun
         body: formData as any,
       })
       if (!pinataRes.ok) throw new AppError('Pinata metadata upload failed', 502)
-      const data = await pinataRes.json()
+      const data = (await pinataRes.json()) as { IpfsHash: string }
       const cid = data.IpfsHash
       return res.json({
         success: true,

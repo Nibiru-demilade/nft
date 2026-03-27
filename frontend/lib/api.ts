@@ -130,6 +130,7 @@ export async function getNFTs(params?: {
   maxPrice?: string
   search?: string
   sortBy?: string
+  sortOrder?: string
   page?: number
   limit?: number
 }) {

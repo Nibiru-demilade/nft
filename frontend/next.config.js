@@ -1,8 +1,8 @@
+const path = require('path')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Avoid loading broken SWC binary on this Windows setup; use Babel instead
-  swcMinify: false,
   images: {
     domains: [
       'ipfs.io',
@@ -18,12 +18,19 @@ const nextConfig = {
       },
     ],
   },
+  transpilePackages: ['@interchain-ui/react'],
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
       net: false,
       tls: false,
+    };
+    // Force lru-cache to use CJS build to avoid SWC transform issue with private class methods
+    const lruCacheCjs = path.join(__dirname, 'node_modules', 'lru-cache', 'dist', 'commonjs', 'index.js')
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'lru-cache': lruCacheCjs,
     };
     return config;
   },

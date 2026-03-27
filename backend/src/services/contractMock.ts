@@ -61,7 +61,7 @@ export const contractMock: ContractService = {
           tokenId,
         },
       },
-      update: { owner, metadataUri: tokenUri, name: name ?? undefined, description: description ?? undefined, image: image ?? undefined, traits: traits ?? undefined },
+      update: { owner, metadataUri: tokenUri, name: name ?? undefined, description: description ?? undefined, image: image ?? undefined, traits: traits ? JSON.stringify(traits) : undefined },
       create: {
         collectionId: collection.id,
         tokenId,
@@ -71,7 +71,7 @@ export const contractMock: ContractService = {
         name: name ?? `Token #${tokenId}`,
         description: description ?? undefined,
         image: image ?? undefined,
-        traits: traits ?? undefined,
+        traits: traits ? JSON.stringify(traits) : undefined,
         mintedAt: new Date(),
       },
     })
@@ -255,7 +255,7 @@ export const contractMock: ContractService = {
         description: description ?? null,
         image: image ?? null,
         creator,
-        categories: [],
+        categories: '[]',
       },
     })
 

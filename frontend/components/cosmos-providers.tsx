@@ -68,6 +68,7 @@ export function CosmosProviders({ children }: { children: React.ReactNode }) {
       chains={[...chains, nibiruTestnet as any]}
       assetLists={[...assets, nibiruAssets as any]}
       wallets={[...keplrWallets, ...leapWallets]}
+      throwErrors={false}
       walletConnectOptions={{
         signClient: {
           projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '',

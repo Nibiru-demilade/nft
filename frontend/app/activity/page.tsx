@@ -1,64 +1,49 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { formatAddress } from '@/lib/utils'
-import { 
-  Tag, ArrowUpRight, RefreshCw, Gavel, Heart, 
-  Filter, ExternalLink 
+import { getActivity, type Activity } from '@/lib/api'
+import {
+  Tag, ArrowUpRight, RefreshCw, Gavel, Heart,
+  ExternalLink
 } from 'lucide-react'
 
-// Mock activity data
-const mockActivity = Array.from({ length: 30 }, (_, i) => ({
-  id: String(i + 1),
-  type: ['sale', 'listing', 'transfer', 'mint', 'offer', 'bid'][i % 6] as string,
-  nft: {
-    tokenId: String(Math.floor(Math.random() * 10000)),
-    name: `NFT #${Math.floor(Math.random() * 10000)}`,
-    image: `https://picsum.photos/seed/activity${i}/100`,
-    collection: {
-      name: ['Cosmic Apes', 'Nibiru Punks', 'Abstract Dreams'][i % 3],
-      address: ['nibi1abc', 'nibi1def', 'nibi1ghi'][i % 3],
-    },
-  },
-  price: (Math.random() * 50 + 1).toFixed(2),
-  from: `nibi1from${i}abc123`,
-  to: `nibi1to${i}def456`,
-  timestamp: new Date(Date.now() - Math.random() * 86400000 * 7),
-  txHash: `0x${Math.random().toString(16).slice(2, 10)}`,
-}))
-
 const activityTypes = [
-  { id: 'all', label: 'All' },
-  { id: 'sale', label: 'Sales' },
-  { id: 'listing', label: 'Listings' },
-  { id: 'offer', label: 'Offers' },
-  { id: 'transfer', label: 'Transfers' },
+  { id: 'all', label: 'All', filter: undefined },
+  { id: 'SALE', label: 'Sales', filter: 'SALE' },
+  { id: 'LIST', label: 'Listings', filter: 'LIST' },
+  { id: 'OFFER', label: 'Offers', filter: 'OFFER' },
+  { id: 'TRANSFER', label: 'Transfers', filter: 'TRANSFER' },
+  { id: 'MINT', label: 'Mints', filter: 'MINT' },
 ]
 
 const getActivityIcon = (type: string) => {
   switch (type) {
-    case 'sale':
+    case 'SALE':
       return <Tag className="h-4 w-4 text-green-500" />
-    case 'listing':
+    case 'LIST':
+    case 'UNLIST':
       return <Tag className="h-4 w-4 text-primary" />
-    case 'transfer':
+    case 'TRANSFER':
       return <ArrowUpRight className="h-4 w-4 text-blue-500" />
-    case 'mint':
+    case 'MINT':
       return <RefreshCw className="h-4 w-4 text-purple-500" />
-    case 'offer':
+    case 'OFFER':
+    case 'OFFER_ACCEPTED':
       return <Heart className="h-4 w-4 text-pink-500" />
-    case 'bid':
+    case 'AUCTION_BID':
+    case 'AUCTION_SETTLED':
       return <Gavel className="h-4 w-4 text-orange-500" />
     default:
       return <Tag className="h-4 w-4" />
   }
 }
 
-const formatTimeAgo = (date: Date) => {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+const formatTimeAgo = (dateStr: string) => {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
   if (seconds < 60) return `${seconds}s ago`
   const minutes = Math.floor(seconds / 60)
   if (minutes < 60) return `${minutes}m ago`
@@ -70,11 +55,48 @@ const formatTimeAgo = (date: Date) => {
 
 export default function ActivityPage() {
   const [selectedType, setSelectedType] = useState('all')
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
 
-  const filteredActivity =
-    selectedType === 'all'
-      ? mockActivity
-      : mockActivity.filter((a) => a.type === selectedType)
+  const fetchActivities = useCallback((cursor?: string) => {
+    const isLoadMore = !!cursor
+    if (isLoadMore) setLoadingMore(true)
+    else setLoading(true)
+
+    const typeFilter = activityTypes.find((t) => t.id === selectedType)?.filter
+
+    getActivity({
+      type: typeFilter,
+      limit: 30,
+      cursor,
+    })
+      .then((r) => {
+        if (isLoadMore) {
+          setActivities((prev) => [...prev, ...(r.activities ?? [])])
+        } else {
+          setActivities(r.activities ?? [])
+        }
+        setNextCursor(r.nextCursor ?? undefined)
+        setHasMore(r.hasMore ?? false)
+        setError(null)
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Failed to load')
+        if (!isLoadMore) setActivities([])
+      })
+      .finally(() => {
+        if (isLoadMore) setLoadingMore(false)
+        else setLoading(false)
+      })
+  }, [selectedType])
+
+  useEffect(() => {
+    fetchActivities()
+  }, [fetchActivities])
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -100,100 +122,121 @@ export default function ActivityPage() {
         ))}
       </div>
 
+      {/* Loading */}
+      {loading && (
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-16 rounded-xl bg-card border border-border animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {/* Error */}
+      {!loading && error && <p className="text-muted-foreground py-8">{error}</p>}
+
       {/* Activity Feed */}
-      <div className="space-y-2">
-        {filteredActivity.map((activity) => (
-          <div
-            key={activity.id}
-            className="flex items-center gap-4 p-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-colors"
-          >
-            {/* Icon */}
-            <div className="p-2 rounded-lg bg-muted">
-              {getActivityIcon(activity.type)}
-            </div>
-
-            {/* NFT Info */}
-            <Link
-              href={`/nft/${activity.nft.collection.address}/${activity.nft.tokenId}`}
-              className="flex items-center gap-3 flex-1 min-w-0"
+      {!loading && !error && (
+        <div className="space-y-2">
+          {activities.map((activity) => (
+            <div
+              key={activity.id}
+              className="flex items-center gap-4 p-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-colors"
             >
-              <Image
-                src={activity.nft.image}
-                alt={activity.nft.name}
-                width={48}
-                height={48}
-                className="rounded-lg object-cover"
-              />
-              <div className="min-w-0">
-                <p className="font-medium truncate">{activity.nft.name}</p>
-                <p className="text-sm text-muted-foreground truncate">
-                  {activity.nft.collection.name}
-                </p>
+              {/* Icon */}
+              <div className="p-2 rounded-lg bg-muted">
+                {getActivityIcon(activity.type)}
               </div>
-            </Link>
 
-            {/* Event Type */}
-            <div className="hidden sm:block text-sm">
-              <span className="capitalize font-medium">{activity.type}</span>
-            </div>
-
-            {/* Price */}
-            <div className="text-right min-w-[80px]">
-              {activity.price && (
-                <>
-                  <p className="font-semibold">{activity.price}</p>
-                  <p className="text-xs text-muted-foreground">NIBI</p>
-                </>
-              )}
-            </div>
-
-            {/* From/To */}
-            <div className="hidden md:block text-sm text-muted-foreground min-w-[120px]">
-              {activity.from && (
+              {/* NFT Info */}
+              {activity.nft ? (
                 <Link
-                  href={`/profile/${activity.from}`}
-                  className="hover:text-foreground"
+                  href={`/nft/${activity.nft.collection.contractAddress}/${activity.nft.tokenId}`}
+                  className="flex items-center gap-3 flex-1 min-w-0"
                 >
-                  {formatAddress(activity.from)}
+                  {activity.nft.image && (
+                    <img
+                      src={activity.nft.image}
+                      alt={activity.nft.name ?? activity.nft.tokenId}
+                      width={48}
+                      height={48}
+                      className="h-12 w-12 rounded-lg object-cover"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{activity.nft.name ?? `#${activity.nft.tokenId}`}</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {activity.nft.collection.name}
+                    </p>
+                  </div>
                 </Link>
+              ) : (
+                <div className="flex-1" />
               )}
-            </div>
 
-            <div className="hidden md:block text-sm text-muted-foreground min-w-[120px]">
-              {activity.to && (
-                <Link
-                  href={`/profile/${activity.to}`}
-                  className="hover:text-foreground"
-                >
-                  {formatAddress(activity.to)}
-                </Link>
-              )}
-            </div>
+              {/* Event Type */}
+              <div className="hidden sm:block text-sm">
+                <span className="capitalize font-medium">{activity.type}</span>
+              </div>
 
-            {/* Time */}
-            <div className="text-sm text-muted-foreground min-w-[70px] text-right">
-              {formatTimeAgo(activity.timestamp)}
-            </div>
+              {/* Price */}
+              <div className="text-right min-w-[80px]">
+                {activity.price && (
+                  <>
+                    <p className="font-semibold">{activity.price}</p>
+                    <p className="text-xs text-muted-foreground">{activity.denom === 'unibi' ? 'NIBI' : activity.denom ?? 'NIBI'}</p>
+                  </>
+                )}
+              </div>
 
-            {/* External Link */}
-            <a
-              href={`https://explorer.nibiru.fi/tx/${activity.txHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
-            >
-              <ExternalLink className="h-4 w-4 text-muted-foreground" />
-            </a>
-          </div>
-        ))}
-      </div>
+              {/* From/To */}
+              <div className="hidden md:block text-sm text-muted-foreground min-w-[120px]">
+                {activity.fromAddress && (
+                  <Link
+                    href={`/profile/${activity.fromAddress}`}
+                    className="hover:text-foreground"
+                  >
+                    {formatAddress(activity.fromAddress)}
+                  </Link>
+                )}
+              </div>
+
+              <div className="hidden md:block text-sm text-muted-foreground min-w-[120px]">
+                {activity.toAddress && (
+                  <Link
+                    href={`/profile/${activity.toAddress}`}
+                    className="hover:text-foreground"
+                  >
+                    {formatAddress(activity.toAddress)}
+                  </Link>
+                )}
+              </div>
+
+              {/* Time */}
+              <div className="text-sm text-muted-foreground min-w-[70px] text-right">
+                {formatTimeAgo(activity.timestamp)}
+              </div>
+            </div>
+          ))}
+
+          {activities.length === 0 && (
+            <p className="text-muted-foreground text-center py-12">No activity found.</p>
+          )}
+        </div>
+      )}
 
       {/* Load More */}
-      <div className="mt-8 text-center">
-        <Button variant="outline" size="lg">
-          Load More Activity
-        </Button>
-      </div>
+      {hasMore && !loading && (
+        <div className="mt-8 text-center">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => fetchActivities(nextCursor)}
+            disabled={loadingMore}
+          >
+            {loadingMore ? 'Loading...' : 'Load More Activity'}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

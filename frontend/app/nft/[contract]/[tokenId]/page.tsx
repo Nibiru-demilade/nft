@@ -117,7 +117,8 @@ export default function NFTDetailPage() {
     )
   }
 
-  const traits = Array.isArray(nft.traits) ? nft.traits : (nft.traits && typeof nft.traits === 'object' && 'attributes' in nft.traits) ? (nft.traits as { attributes?: Array<{ trait_type: string; value: string }> }).attributes ?? [] : []
+  const parsedTraits = typeof nft.traits === 'string' ? (() => { try { return JSON.parse(nft.traits) } catch { return [] } })() : nft.traits
+  const traits = Array.isArray(parsedTraits) ? parsedTraits : (parsedTraits && typeof parsedTraits === 'object' && 'attributes' in parsedTraits) ? (parsedTraits as { attributes?: Array<{ trait_type: string; value: string }> }).attributes ?? [] : []
 
   return (
     <div className="container mx-auto px-4 py-8">

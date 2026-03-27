@@ -46,8 +46,8 @@ nftsRouter.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
     if (query.search) {
       where.OR = [
-        { name: { contains: query.search, mode: 'insensitive' } },
-        { description: { contains: query.search, mode: 'insensitive' } },
+        { name: { contains: query.search } },
+        { description: { contains: query.search } },
       ]
     }
 

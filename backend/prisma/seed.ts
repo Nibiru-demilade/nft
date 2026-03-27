@@ -23,7 +23,7 @@ async function main() {
       totalListings: 123,
       itemCount: 10000,
       ownerCount: 5432,
-      categories: ['PFPs', 'Art'],
+      categories: '["PFPs","Art"]',
       twitter: 'https://twitter.com/cosmicapes',
       website: 'https://cosmicapes.io',
     },
@@ -43,7 +43,7 @@ async function main() {
       totalListings: 89,
       itemCount: 5000,
       ownerCount: 2341,
-      categories: ['PFPs', 'Pixel Art'],
+      categories: '["PFPs","Pixel Art"]',
       twitter: 'https://twitter.com/nibirupunks',
     },
     {
@@ -62,7 +62,7 @@ async function main() {
       totalListings: 45,
       itemCount: 3000,
       ownerCount: 1892,
-      categories: ['Art', 'Generative'],
+      categories: '["Art","Generative"]',
     },
   ]
 
@@ -102,10 +102,10 @@ async function main() {
           name: `${collection.name} #${tokenId}`,
           description: `A unique NFT from ${collection.name}`,
           image: `https://picsum.photos/seed/${collection.symbol}${tokenId}/400`,
-          traits: [
+          traits: JSON.stringify([
             { trait_type: 'Background', value: ['Blue', 'Red', 'Green', 'Purple'][i % 4] },
             { trait_type: 'Rarity', value: ['Common', 'Rare', 'Epic', 'Legendary'][i % 4] },
-          ] as object,
+          ]),
           viewCount: Math.floor(Math.random() * 1000),
           favoriteCount: Math.floor(Math.random() * 100),
           mintedAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),

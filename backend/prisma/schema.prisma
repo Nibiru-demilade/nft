@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -23,7 +23,7 @@ model Collection {
   royaltyAddress  String?
   verified        Boolean  @default(false)
   featured        Boolean  @default(false)
-  
+
   // Stats (updated by indexer)
   floorPrice      BigInt?
   totalVolume     BigInt   @default(0)
@@ -31,22 +31,22 @@ model Collection {
   totalListings   Int      @default(0)
   ownerCount      Int      @default(0)
   itemCount       Int      @default(0)
-  
+
   // Social links
   twitter         String?
   discord         String?
   website         String?
-  
-  // Categories
-  categories      String[]
-  
+
+  // Categories (JSON string for SQLite compatibility)
+  categories      String   @default("[]")
+
   // Timestamps
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   // Relations
   nfts            Nft[]
-  
+
   @@index([creator])
   @@index([verified])
   @@index([totalVolume])
@@ -59,11 +59,11 @@ model Nft {
   tokenId         String
   collectionId    String
   collection      Collection @relation(fields: [collectionId], references: [id])
-  
+
   // Owner info
   owner           String
   creator         String?
-  
+
   // Metadata
   metadataUri     String?
   name            String?
@@ -71,29 +71,29 @@ model Nft {
   image           String?
   animationUrl    String?
   externalUrl     String?
-  
-  // Traits (stored as JSON)
-  traits          Json?
-  
+
+  // Traits (stored as JSON string)
+  traits          String?
+
   // Rarity
   rarityScore     Decimal?
   rarityRank      Int?
-  
+
   // Stats
   viewCount       Int      @default(0)
   favoriteCount   Int      @default(0)
-  
+
   // Timestamps
   mintedAt        DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   // Relations
   listings        Listing[]
   offers          Offer[]
   activities      Activity[]
   favorites       Favorite[]
-  
+
   @@unique([collectionId, tokenId])
   @@index([owner])
   @@index([collectionId])
@@ -105,49 +105,36 @@ model Listing {
   id              String   @id @default(uuid())
   nftId           String
   nft             Nft      @relation(fields: [nftId], references: [id])
-  
+
   // Seller info
   seller          String
-  
-  // Listing details
-  listingType     ListingType @default(FIXED_PRICE)
+
+  // Listing details (listingType: FIXED_PRICE, AUCTION, DUTCH_AUCTION)
+  listingType     String   @default("FIXED_PRICE")
   price           BigInt
   denom           String   @default("unibi")
-  
+
   // Auction fields
   startPrice      BigInt?
   endPrice        BigInt?
   reservePrice    BigInt?
   highestBid      BigInt?
   highestBidder   String?
-  
+
   // Timing
   startsAt        DateTime @default(now())
   expiresAt       DateTime
-  
-  // Status
-  status          ListingStatus @default(ACTIVE)
-  
+
+  // Status (ACTIVE, SOLD, CANCELLED, EXPIRED)
+  status          String   @default("ACTIVE")
+
   // Timestamps
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   @@index([seller])
   @@index([status])
   @@index([expiresAt])
-}
-
-enum ListingType {
-  FIXED_PRICE
-  AUCTION
-  DUTCH_AUCTION
-}
-
-enum ListingStatus {
-  ACTIVE
-  SOLD
-  CANCELLED
-  EXPIRED
 }
 
 // ============ OFFERS ============
@@ -156,35 +143,27 @@ model Offer {
   id              String   @id @default(uuid())
   nftId           String
   nft             Nft      @relation(fields: [nftId], references: [id])
-  
+
   // Bidder info
   bidder          String
-  
+
   // Offer details
   amount          BigInt
   denom           String   @default("unibi")
-  
+
   // Timing
   expiresAt       DateTime
-  
-  // Status
-  status          OfferStatus @default(ACTIVE)
-  
+
+  // Status (ACTIVE, ACCEPTED, REJECTED, CANCELLED, EXPIRED)
+  status          String   @default("ACTIVE")
+
   // Timestamps
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   @@unique([nftId, bidder])
   @@index([bidder])
   @@index([status])
-}
-
-enum OfferStatus {
-  ACTIVE
-  ACCEPTED
-  REJECTED
-  CANCELLED
-  EXPIRED
 }
 
 // ============ ACTIVITIES ============
@@ -193,26 +172,26 @@ model Activity {
   id              String   @id @default(uuid())
   nftId           String?
   nft             Nft?     @relation(fields: [nftId], references: [id])
-  
-  // Activity type
-  type            ActivityType
-  
+
+  // Activity type (MINT, TRANSFER, LIST, UNLIST, SALE, OFFER, OFFER_ACCEPTED, OFFER_CANCELLED, AUCTION_BID, AUCTION_SETTLED)
+  type            String
+
   // Addresses
   fromAddress     String?
   toAddress       String?
-  
+
   // Transaction details
   price           BigInt?
   denom           String?
   txHash          String?
-  
-  // Additional data
-  metadata        Json?
-  
+
+  // Additional data (JSON string)
+  metadata        String?
+
   // Timestamps
   timestamp       DateTime @default(now())
   createdAt       DateTime @default(now())
-  
+
   @@index([nftId])
   @@index([fromAddress])
   @@index([toAddress])
@@ -220,50 +199,37 @@ model Activity {
   @@index([timestamp])
 }
 
-enum ActivityType {
-  MINT
-  TRANSFER
-  LIST
-  UNLIST
-  SALE
-  OFFER
-  OFFER_ACCEPTED
-  OFFER_CANCELLED
-  AUCTION_BID
-  AUCTION_SETTLED
-}
-
 // ============ USERS ============
 
 model User {
   id              String   @id @default(uuid())
   address         String   @unique
-  
+
   // Profile
   username        String?  @unique
   bio             String?
   avatar          String?
   banner          String?
-  
+
   // Social links
   twitter         String?
   discord         String?
   website         String?
   email           String?
-  
+
   // Verification
   verified        Boolean  @default(false)
-  
+
   // Notifications
   emailNotifications Boolean @default(false)
-  
+
   // Timestamps
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   // Relations
   favorites       Favorite[]
-  
+
   @@index([username])
 }
 
@@ -275,9 +241,9 @@ model Favorite {
   user            User     @relation(fields: [userId], references: [id])
   nftId           String
   nft             Nft      @relation(fields: [nftId], references: [id])
-  
+
   createdAt       DateTime @default(now())
-  
+
   @@unique([userId, nftId])
   @@index([userId])
   @@index([nftId])
